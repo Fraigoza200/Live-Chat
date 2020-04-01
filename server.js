@@ -3,7 +3,7 @@ const path = require('path')
 const http = require('http')
 const socketio = require('socket.io')
 const formatMessage = require('./utils/messages')
-const { userJoin, getCurrentUser } = require('./utils/users')
+const { userJoin, getCurrentUser, userLeave, getRoomUsers } = require('./utils/users')
 
 
 
@@ -28,19 +28,33 @@ io.on('connection', socket => {
         // BroadCast all clients that are connecting except the person who is connecting
         socket.broadcast.to(user.room).emit('message',formatMessage(botName, `${user.username} has joined the chat`))
 
+        // user and room info
+        io.to(user.room).emit('roomUsers', {
+            room: user.room,
+            users:getRoomUsers(user.room)
+        })
 
     }) 
     
     // chatMessage 
     socket.on('chatMessage', msg => {
         const user = getCurrentUser(socket.id)
-        console.log(user)
         io.to(user.room).emit('message', formatMessage(user.username, msg))
     })
 
     // Client Disconnects
     socket.on('disconnect', () => {
-        io.emit('message', formatMessage(botName,'A user has left the chat'))
+
+        const user = userLeave(socket.id)
+
+         if(user){
+            io.to(user.room).emit('message', formatMessage(botName,`${user.username} has left the chat`))
+            // send user and room info
+            io.to(user.room).emit('roomUsers', {
+                room: user.room,
+                users:getRoomUsers(user.room)
+            })
+        }
     })
 
 })
